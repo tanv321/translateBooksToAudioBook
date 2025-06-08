@@ -1,22 +1,42 @@
+Your Specific Audiobook Workflow
 
-activate 
-_______________
-source myenv/bin/activate 
+PREREQUISITES
+Be in directory: /Users/tanval/Desktop/Programming projects/translatingBooksToAudioBooks
+Virtual environment "myenv" activated
 
-1st 
-_______________
-python pdf_to_text.py "/Users/tanval/Desktop/Programming projects/translatingBooksToAudioBooks/Books/Ghazali's Book/Deliverance_from_error.pdf"
+STEP-BY-STEP COMMANDS
 
+Start Ollama Server
+Terminal 1 - Keep this running
+cd /Users/tanval/Desktop/Programming\ projects/translatingBooksToAudioBooks
+ollama serve
 
-2nd -- change title, author, subject, output  
-________________
-python ai_ocr_enhancer.py "/Users/tanval/Desktop/Programming projects/translatingBooksToAudioBooks/Books/Ghazali's Book/Deliverance_from_error.pdf" \
-  --title "Deliverance from Error" \
-  --author "Al-Ghazali" \
-  --subject "Islamic Philosophy" \
-  --output "enhanced_deliverance.txt"
+AI Text Enhancement
+Terminal 2 - Main work terminal
+cd /Users/tanval/Desktop/Programming\ projects/translatingBooksToAudioBooks
+python ai_ocr_enhancer_ollama.py "Books/medicalBooks/vdoc.pub_the-body-a-guide-for-occupants.epub" --title "The Body: A Guide for Occupants" --author "Bill Bryson"
 
+Clean Enhanced Text
+Remove the continuation line from the output file
+Edit the generated file and remove:
+"This is a continuation of the previous text. Please correct any OCR errors:"
 
-3rd go into the newly outputted book text file and delete this text:
-_____________________
-This is a continuation of the previous text. Please correct any OCR errors:
+Start Edge TTS Server
+Terminal 3 - Keep this running
+cd /Users/tanval/Desktop/Programming\ projects/translatingBooksToAudioBooks/openai-edge-tts-main
+python app/server.py
+
+Convert to Speech
+Terminal 2 - Go back to main directory
+cd /Users/tanval/Desktop/Programming\ projects/translatingBooksToAudioBooks/openai-edge-tts-main
+python3 text_to_speech.py the_body_a_guide_for_occupants.txt
+
+TERMINAL LAYOUT
+Terminal 1: Ollama server (ollama serve)
+Terminal 2: Main work (AI enhancement to TTS conversion)
+Terminal 3: Edge TTS server (python app/server.py)
+
+FILE LOCATIONS
+Input: Books/medicalBooks/vdoc.pub_the-body-a-guide-for-occupants.epub
+Enhanced text output: the_body_a_guide_for_occupants.txt (in main directory)
+Audio output: openai-edge-tts-main/audiobook_output/

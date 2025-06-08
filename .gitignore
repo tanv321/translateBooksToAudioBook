@@ -1,2 +1,8 @@
 .env
 
+*.mp3
+
+audiobook_output/
+
+*.epub
+
