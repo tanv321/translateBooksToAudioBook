@@ -1,0 +1,22 @@
+
+activate 
+_______________
+source myenv/bin/activate 
+
+1st 
+_______________
+python pdf_to_text.py "/Users/tanval/Desktop/Programming projects/translatingBooksToAudioBooks/Books/Ghazali's Book/Deliverance_from_error.pdf"
+
+
+2nd -- change title, author, subject, output  
+________________
+python ai_ocr_enhancer.py "/Users/tanval/Desktop/Programming projects/translatingBooksToAudioBooks/Books/Ghazali's Book/Deliverance_from_error.pdf" \
+  --title "Deliverance from Error" \
+  --author "Al-Ghazali" \
+  --subject "Islamic Philosophy" \
+  --output "enhanced_deliverance.txt"
+
+
+3rd go into the newly outputted book text file and delete this text:
+_____________________
+This is a continuation of the previous text. Please correct any OCR errors:
