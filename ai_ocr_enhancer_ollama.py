@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-AI Text Enhancer for PDFs and EPUBs
------------------------------------
+AI Text Enhancer for PDFs and EPUBs (Fixed Version)
+---------------------------------------------------
 This script uses AI (OpenAI or Ollama) to enhance and correct text extracted from PDFs and EPUBs.
 It processes the text to fix common OCR errors, restore missing words, improve formatting,
 and filters out non-content elements like page numbers and headers.
+
+FIXED: Prevents AI from including meta-commentary or instructions in the output.
 """
 
 import os
@@ -273,6 +275,48 @@ class AiTextEnhancer:
             return self._call_ollama_api(system_prompt, user_prompt)
         else:
             return self._call_openai_api(system_prompt, user_prompt)
+    
+    def _clean_ai_response(self, response):
+        """Remove any meta-commentary or instructions from AI response."""
+        # Patterns that indicate AI meta-commentary
+        artifact_patterns = [
+            # Instructions about what the AI should do
+            r'^\d+\.\s*(Fix|Ensure|Maintain|Remove|Preserve|Keep).*?:.*?(?=\n\n|\n\d+\.|\Z)',
+            
+            # Meta-commentary about the book structure
+            r'Regarding the book structure and content:.*?(?=\n\n|\Z)',
+            
+            # Lists of tasks or guidelines
+            r'Your tasks:.*?(?=\n\n|\Z)',
+            r'Important guidelines:.*?(?=\n\n|\Z)',
+            
+            # Commentary about what the AI did or didn't do
+            r'The text (appears|uses|has|doesn\'t).*?No changes needed.*?(?=\n|\Z)',
+            r'There (don\'t appear|are no|aren\'t).*?(?=\n|\Z)',
+            
+            # Specific instruction-like phrases
+            r'If such formatting exists.*?(?=\n|\Z)',
+            r'If there were any.*?(?=\n|\Z)',
+            r'The provided text.*?(?=\n|\Z)',
+            
+            # Bullet points that look like instructions
+            r'^[\s-]*(?:Fix|Ensure|Maintain|Remove|Preserve|Do not add).*?(?=\n)',
+            
+            # Full paragraphs that are clearly meta-commentary
+            r'(?:^|\n)(?:The text appears|No additional content|The book does not seem).*?(?=\n\n|\Z)',
+        ]
+        
+        cleaned = response
+        
+        # Remove each pattern
+        for pattern in artifact_patterns:
+            cleaned = re.sub(pattern, '', cleaned, flags=re.MULTILINE | re.DOTALL)
+        
+        # Clean up excessive whitespace left behind
+        cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+        cleaned = re.sub(r'^\s+|\s+$', '', cleaned)
+        
+        return cleaned
         
     def enhance_text(self, text, context=None, is_ocr=True):
         """
@@ -314,7 +358,9 @@ class AiTextEnhancer:
             # Call API
             response = self._call_api(system_prompt, user_prompt)
             if response:
-                enhanced_chunks.append(response)
+                # Clean the response to remove any meta-commentary
+                cleaned_response = self._clean_ai_response(response)
+                enhanced_chunks.append(cleaned_response)
             else:
                 # If API call fails, keep original text
                 enhanced_chunks.append(chunk)
@@ -330,30 +376,26 @@ class AiTextEnhancer:
     
     def _get_ocr_system_prompt(self, context, is_first_chunk):
         """Get system prompt for OCR text enhancement."""
-        base_prompt = """You are an expert text corrector specializing in fixing OCR errors from scanned books and documents.
-        
-Fix these common OCR errors:
-1. Misrecognized characters and words
-2. Missing or extra spaces
-3. Improperly joined or split words
-4. Paragraph formatting issues
-5. Restore missing diacritical marks if appropriate
-6. Fix scrambled footnotes that appear in the wrong place
+        base_prompt = """You are a text corrector. Your ONLY job is to output the corrected version of the text provided.
 
-Important guidelines:
-- Do NOT add or invent content that isn't implied by the text
-- DO correct obvious OCR errors based on context
-- Preserve the original paragraph structure and layout
-- If some text is completely unintelligible, leave it as is but add [?] after it
-- Fix obvious name misspellings
-- Maintain footnotes in their logical positions
-- Remove any obvious page numbers or headers that don't belong to the main text"""
+CRITICAL RULES:
+1. Output ONLY the corrected text - no explanations, no commentary, no lists
+2. Fix OCR errors: misrecognized characters, missing spaces, split/joined words
+3. Fix obvious spelling errors and restore missing diacritical marks
+4. Preserve the exact structure and paragraph breaks of the original
+5. If text is unintelligible, leave it as is with [?] after it
+6. Remove obvious page numbers and headers that don't belong
+7. DO NOT add any meta-commentary about what you did or didn't do
+8. DO NOT explain your corrections or list your tasks
+9. Simply output the corrected text and nothing else"""
         
         if is_first_chunk and context:
             context_info = f"""Document context:
 Title: {context.get('title', 'Unknown')}
 Author: {context.get('author', 'Unknown')}
 Subject: {context.get('subject', 'Unknown')}
+
+Remember: Output ONLY the corrected text, no explanations.
 """
             return context_info + "\n" + base_prompt
         
@@ -361,28 +403,26 @@ Subject: {context.get('subject', 'Unknown')}
     
     def _get_epub_system_prompt(self, context, is_first_chunk):
         """Get system prompt for EPUB text enhancement."""
-        base_prompt = """You are an expert text editor working with digital book content.
-        
-Your tasks:
-1. Fix any formatting issues from HTML to text conversion
-2. Ensure proper paragraph breaks
-3. Fix any encoding errors or special character issues
-4. Maintain emphasis (italics/bold) where appropriate using markdown
-5. Ensure footnotes are properly positioned
-6. Remove any artifacts from the conversion process
+        base_prompt = """You are a text formatter. Your ONLY job is to output the properly formatted version of the text provided.
 
-Important guidelines:
-- Preserve the author's original text and intent
-- Maintain the book's structure and flow
-- Keep chapter divisions clear
-- Do not add content that isn't in the original
-- Fix only technical/formatting issues, not style"""
+CRITICAL RULES:
+1. Output ONLY the formatted text - no explanations, no commentary, no lists
+2. Fix formatting issues from HTML to text conversion
+3. Ensure proper paragraph breaks
+4. Fix encoding errors or special character issues
+5. Maintain emphasis using markdown (*italics* and **bold**)
+6. Remove conversion artifacts
+7. DO NOT add any meta-commentary about the formatting
+8. DO NOT explain what you changed or list your tasks
+9. Simply output the properly formatted text and nothing else"""
         
         if is_first_chunk and context:
             context_info = f"""Book information:
 Title: {context.get('title', 'Unknown')}
 Author: {context.get('author', 'Unknown')}
 Subject: {context.get('subject', 'Unknown')}
+
+Remember: Output ONLY the formatted text, no explanations.
 """
             return context_info + "\n" + base_prompt
         
